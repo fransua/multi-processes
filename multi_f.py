@@ -15,6 +15,7 @@ from subprocess import Popen, PIPE
 from time       import sleep, time, ctime
 from cPickle    import dump
 from threading  import Thread
+from os         import nice
 
 
 def runner (listfile, refresh, nprocs, results, procs):
@@ -22,7 +23,8 @@ def runner (listfile, refresh, nprocs, results, procs):
     try:
         for line in listfile:
             i += 1
-            procs[i] = {'p': Popen(line, shell=True, stderr=PIPE, stdout=PIPE),
+            procs[i] = {'p': Popen(line, shell=True, stderr=PIPE, stdout=PIPE,
+                                   preexec_fn=lambda : nice(5)),
                         'cmd': line, 't': time()}
             if len (procs) < nprocs:
                 continue
