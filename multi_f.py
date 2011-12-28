@@ -60,8 +60,9 @@ def main():
         print '>',
         r = raw_input()
         if r=='q':
-            t._Thread__stop()
-            break
+            if raw_input('  -> really STOP all running jobs (y|N): ')=='y':
+                t._Thread__stop()
+                break
         if r=='f':
             print '\nDone jobs:'
             print '***********'
