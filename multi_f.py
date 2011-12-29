@@ -1,8 +1,7 @@
-#!/usr/bin/python
 """
 28 Dec 2011
 
-
+Something to manage running a list of jobs in local but several CPUs
 """
 
 __author__  = "Francois-Jose Serra"
@@ -151,12 +150,18 @@ def main():
     t_term._Thread__stop()
 
     # this is in order to repair terminal, because of bad ending of raw_input (nothing better found)
-    system('tset')
+    Popen('tset', shell=True).communicate()
 
     # saving log to pickle
     if listfile:
         results['pending'] = listfile
     dump(results, open (opts.log, 'w'))
+    print ['\n Bye-bye\n', '\n Talogo!!\n', '\n Have a nice day\n',
+           '\n And they lived happily ever after and they had a lot of children\n',
+           '\n The End.\n', '\n Au revoir\n', 
+           '\n Nooooo come back!!!! Quick!!\n', '\n Thanks.. I really enjoyed\n',
+           "\n I'm a poor lonesome cowboy, and a long way from home...\n",
+           '\n Flying Spaghetti Monster be with you.\n'] [int (str (time())[-1])]
     
 
 def get_options():
