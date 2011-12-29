@@ -28,9 +28,9 @@ def runner (listfile, refresh, nprocs, results, procs):
             procs[i] = {'p': Popen(line, shell=True, stderr=PIPE, stdout=PIPE,
                                    preexec_fn=lambda : nice(5)),
                         'cmd': line, 't': time()}
-            if len (procs) < nprocs:
+            if len (procs) < nprocs[0]:
                 continue
-            while len (procs) >= nprocs:
+            while len (procs) >= nprocs[0]:
                 for p in procs:
                     if procs[p]['p'].poll() is None:
                         sleep(refresh)
@@ -48,7 +48,7 @@ def runner (listfile, refresh, nprocs, results, procs):
 def timit (t):
     return (int (((t/60/60/24))), int ((t/60/60)%24), int ((t/60)%60), int (t%60))
 
-def in_console(t_runs, results, procs, lenlist):
+def in_console(t_runs, results, procs, nprocs, lenlist):
     raw = '| {0:<5} | {1:<25} | {2:0>2}d {3:0>2}h {4:0>2}m {5:0>2}s |'
     header = '\n| {0:^5} | {1:^25} | {2:^15} |'
     while 1:
@@ -61,6 +61,13 @@ def in_console(t_runs, results, procs, lenlist):
             if raw_input('  -> really STOP all running jobs (y|N): ')=='y':
                 t_runs._Thread__stop()
                 break
+        if r=='c':
+            p = raw_input('  -> type number of CPUs (currently: {0}): '.format(nprocs[0]))
+            if p.isdigit():
+                nprocs[0] = int (p)
+                print 'ok\n'
+            else:
+                print 'not valid number\n'
         elif r=='d':
             print '\nDone jobs:'
             print '***********'
@@ -83,8 +90,12 @@ def in_console(t_runs, results, procs, lenlist):
             print ' * h: help'
             print ' * d: stats about finished jobs'
             print ' * r: stats about running jobs'
-            print ' * [r for r in results if sum(results[r]["t"][:-3]) > 1]: print jobs during more then 1 minute'
-            print ' * locals(): print local variables'
+            print ' * c: change number of CPUs assigned to jobs'
+            print ' * w: number of waiting jobs'
+            print ' * q: exit and STOP launching jobs so nicely (running jobs may finish normally, but will not appear in log.)'
+            print ' * whatever python command:'
+            print '    - [r for r in results if sum(results[r]["t"][:-3]) > 1]: print jobs during more then 1 minute'
+            print '    - locals(): print local variables'
             print ''
         elif r=='w':
             print '\n Waiting Jobs: {0}\n'.format((lenlist - (len (results) + len (procs))))
@@ -100,7 +111,7 @@ def main():
     main function
     """
     opts = get_options()
-    nprocs  = int (opts.nprocs)
+    nprocs  = [int (opts.nprocs)]
     refresh = int (opts.refresh)
     listfile = open (opts.listfile).readlines()
     results = {}
@@ -108,7 +119,7 @@ def main():
 
     t_runs = Thread (target=runner, args=(listfile, refresh, nprocs, results, procs))
     t_runs.start()
-    t_term = Thread (target=in_console, args=(t_runs, results, procs, len (listfile)))
+    t_term = Thread (target=in_console, args=(t_runs, results, procs, nprocs, len (listfile)))
     t_term.start()
 
     while t_runs.is_alive() and t_term.is_alive():
