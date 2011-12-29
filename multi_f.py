@@ -8,12 +8,12 @@
 __author__  = "Francois-Jose Serra"
 __email__   = "francois@barrabin.org"
 __licence__ = "GPLv3"
-__version__ = "0.0"
+__version__ = "0.1"
 
 from optparse   import OptionParser
 from subprocess import Popen, PIPE
 from time       import sleep, time, ctime
-from cPickle    import dump
+from cPickle    import dump, load
 from threading  import Thread
 from os         import nice, system
 from pprint     import pprint
@@ -21,9 +21,13 @@ from pprint     import pprint
 import readline
 
 def runner (listfile, refresh, nprocs, results, procs):
-    i = 0
+    '''
+    where jobs are runned
+    '''
+    i = len (results)
     try:
-        for line in listfile:
+        while listfile:
+            line = listfile.pop(0)
             i += 1
             procs[i] = {'p': Popen(line, shell=True, stderr=PIPE, stdout=PIPE,
                                    preexec_fn=lambda : nice(5)),
@@ -46,9 +50,16 @@ def runner (listfile, refresh, nprocs, results, procs):
 
 
 def timit (t):
+    '''
+    transform seconds to (days, hours, minutes, seconds)
+    '''
     return (int (((t/60/60/24))), int ((t/60/60)%24), int ((t/60)%60), int (t%60))
 
-def in_console(t_runs, results, procs, nprocs, lenlist):
+
+def in_console(t_runs, results, procs, nprocs, listfile):
+    '''
+    little prompt in order to manage jobs
+    '''
     raw = '| {0:<5} | {1:<25} | {2:0>2}d {3:0>2}h {4:0>2}m {5:0>2}s |'
     header = '\n| {0:^5} | {1:^25} | {2:^15} |'
     while 1:
@@ -58,10 +69,18 @@ def in_console(t_runs, results, procs, nprocs, lenlist):
             print '    X-O\n'
             r = 'q'
         if r=='q':
-            if raw_input('  -> really STOP all running jobs (y|N): ')=='y':
+            r = raw_input('  -> one last question: \n     do you want to [k]ill or [s]ave running jobs, else [N]othing (k|s|N): ')
+            if r == 'k':
+                t_runs._Thread__stop()
+                for p in procs:
+                    procs[p]['p'].kill()
+            elif r == 's':
+                nprocs[0] = 0
+                while len (procs)>0:
+                    sleep(1)
                 t_runs._Thread__stop()
                 break
-        if r=='c':
+        elif r=='c':
             p = raw_input('  -> type number of CPUs (currently: {0}): '.format(nprocs[0]))
             if p.isdigit():
                 nprocs[0] = int (p)
@@ -98,7 +117,7 @@ def in_console(t_runs, results, procs, nprocs, lenlist):
             print '    - locals(): print local variables'
             print ''
         elif r=='w':
-            print '\n Waiting Jobs: {0}\n'.format((lenlist - (len (results) + len (procs))))
+            print '\n Waiting Jobs: {0}\n'.format((len(listfile)))
         elif r:
             try:
                 exec ('pprint (%s)'%(r))
@@ -113,23 +132,30 @@ def main():
     opts = get_options()
     nprocs  = [int (opts.nprocs)]
     refresh = int (opts.refresh)
-    listfile = open (opts.listfile).readlines()
-    results = {}
+    if opts.restore:
+        results  = load (open(opts.restore))
+        listfile = results ['pending']
+        del (results['pending'])
+    else:
+        listfile = open (opts.listfile).readlines()
+        results = {}
     procs = {}
 
     t_runs = Thread (target=runner, args=(listfile, refresh, nprocs, results, procs))
     t_runs.start()
-    t_term = Thread (target=in_console, args=(t_runs, results, procs, nprocs, len (listfile)))
+    t_term = Thread (target=in_console, args=(t_runs, results, procs, nprocs, listfile))
     t_term.start()
 
     while t_runs.is_alive() and t_term.is_alive():
         sleep(1)
     t_term._Thread__stop()
 
-    # this is in order to repair terminal, because of bad ending of raw_input
+    # this is in order to repair terminal, because of bad ending of raw_input (nothing better found)
     system('tset')
 
     # saving log to pickle
+    if listfile:
+        results['pending'] = listfile
     dump(results, open (opts.log, 'w'))
     
 
@@ -148,11 +174,15 @@ def get_options():
                       help='number of procs to use')
     parser.add_option('-r', dest='refresh', metavar="INT", default='2',
                       help='number of seconds between each job refresh')
+    parser.add_option('--restore', dest='restore', metavar="PATH", default='',
+                      help='restore array job from pickle')
     opts = parser.parse_args()[0]
-    if not opts.listfile:
+    if not opts.listfile and not opts.restore:
         parser.print_help()
         exit()
-    if not opts.log:
+    if opts.restore:
+        opts.log = opts.restore
+    elif not opts.log:
         opts.log = opts.listfile + '.pik'
     return opts
 
