@@ -20,6 +20,50 @@ from pprint     import pprint
 
 import readline
 
+    
+def main():
+    """
+    main function
+    """
+    opts = get_options()
+    
+    nprocs  = [int (opts.nprocs)]
+    refresh = int (opts.refresh)
+
+    # parse array jobs and load/create results dict for log
+    if opts.restore:
+        results  = load (open (opts.restore))
+        listfile = results ['pending']
+        del (results['pending'])
+    else:
+        listfile = open (opts.listfile).readlines()
+        results = {}
+    procs = {}
+
+    # Threads
+    # execute array jobs
+    t_runs = Thread (target=runner,
+                     args  =(listfile, refresh, nprocs, results, procs))
+    t_runs.start()
+    # open terminal
+    t_term = Thread (target=prompter,
+                     args  =(t_runs, results, procs, nprocs, listfile))
+    t_term.start()
+
+    # wait
+    wait (t_runs, t_term)
+
+    # this is in order to repair terminal, because of bad ending of raw_input (nothing better found)
+    Popen('tset', shell=True).communicate()
+
+    # saving log to pickle
+    if listfile:
+        results['pending'] = listfile
+    dump(results, open (opts.log, 'w'))
+
+    print bye()
+    
+
 def runner (listfile, refresh, nprocs, results, procs):
     '''
     where jobs are runned
@@ -56,7 +100,7 @@ def timit (t):
     return (int (((t/60/60/24))), int ((t/60/60)%24), int ((t/60)%60), int (t%60))
 
 
-def in_console(t_runs, results, procs, nprocs, listfile):
+def prompter (t_runs, results, procs, nprocs, listfile):
     '''
     little prompt in order to manage jobs
     '''
@@ -64,7 +108,7 @@ def in_console(t_runs, results, procs, nprocs, listfile):
     header = '\n| {0:^5} | {1:^25} | {2:^15} |'
     while 1:
         try:
-            r = raw_input('> ')
+            r = raw_input('}:-> ')
         except (KeyboardInterrupt, EOFError):
             print '    X-O\n'
             r = 'q'
@@ -125,45 +169,23 @@ def in_console(t_runs, results, procs, nprocs, listfile):
                 print ' hmmm... this is not working well\n'
 
 
-def main():
-    """
-    main function
-    """
-    opts = get_options()
-    nprocs  = [int (opts.nprocs)]
-    refresh = int (opts.refresh)
-    if opts.restore:
-        results  = load (open(opts.restore))
-        listfile = results ['pending']
-        del (results['pending'])
-    else:
-        listfile = open (opts.listfile).readlines()
-        results = {}
-    procs = {}
-
-    t_runs = Thread (target=runner, args=(listfile, refresh, nprocs, results, procs))
-    t_runs.start()
-    t_term = Thread (target=in_console, args=(t_runs, results, procs, nprocs, listfile))
-    t_term.start()
-
+def wait(t_runs, t_term):
+    '''
+    wait until finish
+    '''
     while t_runs.is_alive() and t_term.is_alive():
         sleep(1)
     t_term._Thread__stop()
 
-    # this is in order to repair terminal, because of bad ending of raw_input (nothing better found)
-    Popen('tset', shell=True).communicate()
 
-    # saving log to pickle
-    if listfile:
-        results['pending'] = listfile
-    dump(results, open (opts.log, 'w'))
-    print ['\n Bye-bye\n', '\n Talogo!!\n', '\n Have a nice day\n',
-           '\n And they lived happily ever after and they had a lot of children\n',
-           '\n The End.\n', '\n Au revoir\n', 
-           '\n Nooooo come back!!!! Quick!!\n', '\n Thanks.. I really enjoyed\n',
-           "\n I'm a poor lonesome cowboy, and a long way from home...\n",
-           '\n Flying Spaghetti Monster be with you.\n'] [int (str (time())[-1])]
-    
+def bye():
+    return ['\n Bye-bye\n', '\n Talogo!!\n', '\n Have a nice day\n',
+            '\n And they lived happily ever after and they had a lot of children\n',
+            '\n The End.\n', '\n Au revoir\n', 
+            '\n Nooooo come back!!!! Quick!!\n', '\n Thanks.. I really enjoyed\n',
+            "\n I'm a poor lonesome cowboy, and a long way from home...\n",
+            '\n Flying Spaghetti Monster be with you.\n'] [int (str (time())[-1])]
+
 
 def get_options():
     '''
