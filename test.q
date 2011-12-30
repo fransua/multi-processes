@@ -21,6 +21,6 @@ sleep 10; echo 1+1
 sleep 6; nada
 sleep 3; echo $PRPRPRP
 sleep 1; echo lolo
-sleep 0; print 
+sleep 0; echo 'print '
 sleep 2;012
 sleep 10; echo "prout

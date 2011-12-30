@@ -13,7 +13,7 @@ __version__ = "0.1"
 from optparse   import OptionParser
 from subprocess import Popen, PIPE
 from time       import sleep, time, ctime
-from cPickle    import dump, load
+from cPickle    import dump, load, UnpicklingError
 from threading  import Thread
 from os         import nice, system
 from pprint     import pprint
@@ -29,13 +29,26 @@ def main():
     opts = get_options()
     
     nprocs  = [int (opts.nprocs)]
-    refresh = int (opts.refresh)
+    refresh = float (opts.refresh)
 
     # parse array jobs and load/create results dict for log
-    if opts.restore:
-        results  = load (open (opts.restore))
-        listfile = results ['pending']
-        del (results['pending'])
+    if opts.resume:
+        try:
+            results_o = load (open (opts.resume))
+        except UnpicklingError:
+            print '\nThis is not a log file...\n'
+            exit()
+        try:
+            listfile  = results_o ['pending']
+        except KeyError:
+            print '\nNo pending jobs here...\n'
+            exit()
+        items = results_o.keys()
+        del (results_o['pending'])
+        results = {}
+        for r in xrange (len (results_o)):
+            results[r+1] = results_o[items[r]]
+        del (results_o)
     else:
         listfile = open (opts.listfile).readlines()
         results = {}
@@ -71,26 +84,31 @@ def runner (listfile, refresh, nprocs, results, procs):
     '''
     i = len (results)
     try:
-        while listfile:
-            line = listfile.pop(0)
-            i += 1
-            procs[i] = {'p': Popen(line, shell=True, stderr=PIPE, stdout=PIPE,
-                                   preexec_fn=lambda : nice(NICE)),
-                        'cmd': line, 't': time()}
-            if len (procs) < nprocs[0]:
-                continue
-            while len (procs) >= nprocs[0]:
-                for p in procs:
-                    if procs[p]['p'].poll() is None:
-                        sleep(refresh)
-                        continue
-                    results[p] = {'cmd': procs[p]['cmd'], 't0': ctime(procs[p]['t']),
-                                  't': timit(time()-procs[p]['t'])}
-                    results[p]['out'], results[p]['err'] = procs[p]['p'].communicate()
-                    del (procs[p])
-                    break
-    except:
+        while listfile or procs:
+            if listfile and len (procs)<nprocs[0]:
+                line = listfile.pop(0)
+                i += 1
+                procs[i] = {'p': Popen(line, shell=True,
+                                       stderr=PIPE, stdout=PIPE,
+                                       preexec_fn=lambda : nice(NICE)),
+                            'cmd': line, 't': time()}
+            for p in procs:
+                if procs[p]['p'].poll() is None:
+                    continue
+                if procs[p]['p'].returncode == -9:
+                    print ' WAHOOO!!! this was killed:'
+                    print procs[p]
+                    return
+                results[p] = {'cmd': procs[p]['cmd'],
+                              't0': ctime(procs[p]['t']),
+                              't': timit(time()-procs[p]['t'])}
+                results[p]['out'], results[p]['err'] = procs[p]['p'].communicate()
+                del (procs[p])
+                break
+            sleep(refresh)
+    except Exception as e:
         print 'ERROR at', i
+        print e
     print '\n\nall jobs done...'
 
 
@@ -115,6 +133,22 @@ def prompter (t_runs, results, procs, nprocs, listfile, name):
     timestr = '{0:0>2}d {1:0>2}h {2:0>2}m {3:0>2}s'
     header = '\n| {0:^5} | {1:^15} | {2:^15} | {3:^%s} |'%(w-1)
     raw = '| {0:<5} | {1:<15} | {3:0>2}d {4:0>2}h {5:0>2}m {6:0>2}s |{2:<%s} |'%(w)
+    help_s = """
+Help:
+******
+  * h: help
+  * a: summary statistics
+  * d: stats about finished jobs
+  * r: stats about running jobs
+  * c: change number of CPUs assigned to jobs
+  * w: number of waiting jobs
+  * q: exit and STOP launching jobs so nicely (running jobs may finish normally, but will not appear in log.)
+  * whatever python command:
+    - [r for r in results if sum(results[r]['t'][:-3]) > 1]: print jobs during more then 1 minute
+    - locals(): print local variables
+"""
+    print "Welcome!!\n"
+    print help_s
     try:
         while 1:
             try:
@@ -128,6 +162,9 @@ def prompter (t_runs, results, procs, nprocs, listfile, name):
                     t_runs._Thread__stop()
                     for p in procs:
                         procs[p]['p'].kill()
+                        listfile.insert(0, procs[p]['cmd'])
+                    print 'hello'
+                    break
                 elif r == 's':
                     nprocs[0] = 0
                     while len (procs)>0:
@@ -178,19 +215,7 @@ def prompter (t_runs, results, procs, nprocs, listfile, name):
                 print 'resting time  ~ ' + timestr.format(*timit(rest))
                 print ''
             elif r=='h':
-                print '\nHelp:'
-                print '******\n'
-                print ' * h: help'
-                print ' * a: summary statistics'
-                print ' * d: stats about finished jobs'
-                print ' * r: stats about running jobs'
-                print ' * c: change number of CPUs assigned to jobs'
-                print ' * w: number of waiting jobs'
-                print ' * q: exit and STOP launching jobs so nicely (running jobs may finish normally, but will not appear in log.)'
-                print ' * whatever python command:'
-                print '    - [r for r in results if sum(results[r]["t"][:-3]) > 1]: print jobs during more then 1 minute'
-                print '    - locals(): print local variables'
-                print ''
+                print help_s
             elif r=='w':
                 print '\n Waiting Jobs: {0}\n'.format((len(listfile)))
             elif r:
@@ -240,14 +265,15 @@ def get_options():
                       help='number of procs to use')
     parser.add_option('-r', dest='refresh', metavar="INT", default='2',
                       help='number of seconds between each job refresh')
-    parser.add_option('--restore', dest='restore', metavar="PATH", default='',
-                      help='restore array job from pickle')
+    parser.add_option('--resume', dest='resume', metavar="PATH", default='',
+                      help='resume array job from pickle')
     opts = parser.parse_args()[0]
-    if not opts.listfile and not opts.restore:
+    if not opts.listfile and not opts.resume:
         parser.print_help()
         exit()
-    if opts.restore:
-        opts.log = opts.restore
+    if opts.resume:
+        opts.log = opts.resume
+        opts.listfile = opts.resume.replace('.pik','')
     elif not opts.log:
         opts.log = opts.listfile + '.pik'
     if not opts.name:
