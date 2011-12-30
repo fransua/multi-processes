@@ -20,6 +20,7 @@ from pprint     import pprint
 
 import readline
 
+NICE=19
     
 def main():
     """
@@ -47,7 +48,7 @@ def main():
     t_runs.start()
     # open terminal
     t_term = Thread (target=prompter,
-                     args  =(t_runs, results, procs, nprocs, listfile))
+                     args  =(t_runs, results, procs, nprocs, listfile, opts.name))
     t_term.start()
 
     # wait
@@ -74,7 +75,7 @@ def runner (listfile, refresh, nprocs, results, procs):
             line = listfile.pop(0)
             i += 1
             procs[i] = {'p': Popen(line, shell=True, stderr=PIPE, stdout=PIPE,
-                                   preexec_fn=lambda : nice(5)),
+                                   preexec_fn=lambda : nice(NICE)),
                         'cmd': line, 't': time()}
             if len (procs) < nprocs[0]:
                 continue
@@ -90,7 +91,7 @@ def runner (listfile, refresh, nprocs, results, procs):
                     break
     except:
         print 'ERROR at', i
-    print '\n\n\n\nThe End.'
+    print '\n\nall jobs done...'
 
 
 def timit (t):
@@ -99,74 +100,109 @@ def timit (t):
     '''
     return (int (((t/60/60/24))), int ((t/60/60)%24), int ((t/60)%60), int (t%60))
 
+def untime (ts):
+    return ts[0]*60*60*24 + ts[1]*60*60 + ts[2]*60 + ts[3]
 
-def prompter (t_runs, results, procs, nprocs, listfile):
+def print_cmd(cmd, w=50):
+    cmd = cmd.strip()
+    return (' ' + cmd if len (cmd)<w else '..'+cmd[-(w-2):])
+
+def prompter (t_runs, results, procs, nprocs, listfile, name):
     '''
     little prompt in order to manage jobs
     '''
-    raw = '| {0:<5} | {1:<25} | {2:0>2}d {3:0>2}h {4:0>2}m {5:0>2}s |'
-    header = '\n| {0:^5} | {1:^25} | {2:^15} |'
-    while 1:
-        try:
-            r = raw_input('}:-> ')
-        except (KeyboardInterrupt, EOFError):
-            print '    X-O\n'
-            r = 'q'
-        if r=='q':
-            r = raw_input('  -> one last question: \n     do you want to [k]ill or [s]ave running jobs, else [N]othing (k|s|N): ')
-            if r == 'k':
-                t_runs._Thread__stop()
-                for p in procs:
-                    procs[p]['p'].kill()
-            elif r == 's':
-                nprocs[0] = 0
-                while len (procs)>0:
-                    sleep(1)
-                t_runs._Thread__stop()
-                break
-        elif r=='c':
-            p = raw_input('  -> type number of CPUs (currently: {0}): '.format(nprocs[0]))
-            if p.isdigit():
-                nprocs[0] = int (p)
-                print 'ok\n'
-            else:
-                print 'not valid number\n'
-        elif r=='d':
-            print '\nDone jobs:'
-            print '***********'
-            print header.format ('job #', 'start time', 'spent time')
-            for j in results:
-                print raw.format (str(j), results[j]['t0'],
-                                  *[i for i in results[j]['t']])
-            print ''
-        elif r=='r':
-            print '\nRunning jobs:'
-            print '**************'
-            print header.format ('job #', 'start time', 'running time')
-            for j in procs:
-                print raw.format(str(j), ctime(procs[j]['t']),
-                                 *[i for i in timit (time()-procs[j]['t'])])
-            print ''
-        elif r=='h':
-            print '\nHelp:'
-            print '******\n'
-            print ' * h: help'
-            print ' * d: stats about finished jobs'
-            print ' * r: stats about running jobs'
-            print ' * c: change number of CPUs assigned to jobs'
-            print ' * w: number of waiting jobs'
-            print ' * q: exit and STOP launching jobs so nicely (running jobs may finish normally, but will not appear in log.)'
-            print ' * whatever python command:'
-            print '    - [r for r in results if sum(results[r]["t"][:-3]) > 1]: print jobs during more then 1 minute'
-            print '    - locals(): print local variables'
-            print ''
-        elif r=='w':
-            print '\n Waiting Jobs: {0}\n'.format((len(listfile)))
-        elif r:
+    w = 50
+    timestr = '{0:0>2}d {1:0>2}h {2:0>2}m {3:0>2}s'
+    header = '\n| {0:^5} | {1:^15} | {2:^15} | {3:^%s} |'%(w-1)
+    raw = '| {0:<5} | {1:<15} | {3:0>2}d {4:0>2}h {5:0>2}m {6:0>2}s |{2:<%s} |'%(w)
+    try:
+        while 1:
             try:
-                exec ('pprint (%s)'%(r))
-            except:
-                print ' hmmm... this is not working well\n'
+                r = raw_input('}:-> ')
+            except (KeyboardInterrupt, EOFError):
+                print '    X-O\n'
+                r = 'q'
+            if r=='q':
+                r = raw_input('  -> one last question: \n     do you want to [k]ill or [s]ave running jobs, else [N]othing (k|s|N): ')
+                if r == 'k':
+                    t_runs._Thread__stop()
+                    for p in procs:
+                        procs[p]['p'].kill()
+                elif r == 's':
+                    nprocs[0] = 0
+                    while len (procs)>0:
+                        sleep(1)
+                    t_runs._Thread__stop()
+                    break
+            elif r=='c':
+                p = raw_input('  -> type number of CPUs (currently: {0}): '.format(nprocs[0]))
+                if p.isdigit():
+                    nprocs[0] = int (p)
+                    print 'ok\n'
+                else:
+                    print 'not valid number\n'
+            elif r=='d':
+                print '\nDone jobs:'
+                print '***********'
+                print header.format ('job #', 'start time', 'spent time', 'command')
+                print '-'*(47+w)
+                for j in results:
+                    print raw.format (str(j), results[j]['t0'][4:-5],
+                                      print_cmd (results[j]['cmd'], w),
+                                      *[i for i in results[j]['t']])
+                print ''
+            elif r=='r':
+                print '\nRunning jobs:'
+                print '**************'
+                print header.format ('job #', 'start time', 'running time', 'command')
+                print '-'*(47+w)
+                for j in procs:
+                    print raw.format(str(j), ctime(procs[j]['t'])[4:-5],
+                                      print_cmd (procs[j]['cmd'], w),
+                                     *[i for i in timit (time()-procs[j]['t'])])
+                print ''
+            elif r=='a':
+                if len (results) > 0:
+                    mean_t = sum([untime(results[r]['t']) for r in results])/len (results)
+                else:
+                    mean_t = 0
+                rest = mean_t*len (listfile)/nprocs[0]
+                print mean_t
+                print '\nSummary:'
+                print '*********\n'
+                print 'Job name      : ' + name
+                print 'assigned CPUs : ' + str (nprocs[0])
+                print 'done jobs     : ' + str (len (results))
+                print 'mean time     : ' + timestr.format(*timit (mean_t))
+                print 'resting jobs  : ' + str (len (listfile))
+                print 'resting time  ~ ' + timestr.format(*timit(rest))
+                print ''
+            elif r=='h':
+                print '\nHelp:'
+                print '******\n'
+                print ' * h: help'
+                print ' * a: summary statistics'
+                print ' * d: stats about finished jobs'
+                print ' * r: stats about running jobs'
+                print ' * c: change number of CPUs assigned to jobs'
+                print ' * w: number of waiting jobs'
+                print ' * q: exit and STOP launching jobs so nicely (running jobs may finish normally, but will not appear in log.)'
+                print ' * whatever python command:'
+                print '    - [r for r in results if sum(results[r]["t"][:-3]) > 1]: print jobs during more then 1 minute'
+                print '    - locals(): print local variables'
+                print ''
+            elif r=='w':
+                print '\n Waiting Jobs: {0}\n'.format((len(listfile)))
+            elif r:
+                try:
+                    exec ('pprint (%s)'%(r))
+                except:
+                    print ' hmmm... this is not working well\n'
+    except Exception as e:
+        t_runs._Thread__stop()
+        print 'Big Horror!!\n'
+        print e
+        exit()
 
 
 def wait(t_runs, t_term):
@@ -198,6 +234,8 @@ def get_options():
                       help='path to infile')
     parser.add_option('-o', dest='log', metavar="PATH",
                       help='path to log-file')
+    parser.add_option('-N', dest='name',
+                      help='array-job name')
     parser.add_option('-p', dest='nprocs', metavar="INT", default='4',
                       help='number of procs to use')
     parser.add_option('-r', dest='refresh', metavar="INT", default='2',
@@ -212,6 +250,8 @@ def get_options():
         opts.log = opts.restore
     elif not opts.log:
         opts.log = opts.listfile + '.pik'
+    if not opts.name:
+        opts.name = opts.listfile.split('/')[-1]
     return opts
 
 
