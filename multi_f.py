@@ -50,7 +50,7 @@ def main():
             results[r+1] = results_o[items[r]]
         del (results_o)
     else:
-        listfile = open (opts.listfile).readlines()
+        listfile = [line.strip() for line in open (opts.listfile).readlines() if line.strip()]
         results = {}
     procs = {}
 
@@ -149,7 +149,7 @@ Help:
 """
     print "\n Welcome!!\n"
     print help_s
-    print '   {0} jobs sent to queue\n'.format(len (listfile))
+    print '   {0} jobs sent to queue\n'.format(len (listfile)+len(procs))
     try:
         while 1:
             try:
