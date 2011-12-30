@@ -147,8 +147,9 @@ Help:
     - [r for r in results if sum(results[r]['t'][:-3]) > 1]: print jobs during more then 1 minute
     - locals(): print local variables
 """
-    print "Welcome!!\n"
+    print "\n Welcome!!\n"
     print help_s
+    print '   {0} jobs sent to queue\n'.format(len (listfile))
     try:
         while 1:
             try:
@@ -235,7 +236,7 @@ def wait(t_runs, t_term):
     wait until finish
     '''
     while t_runs.is_alive() and t_term.is_alive():
-        sleep(1)
+        sleep(2)
     t_term._Thread__stop()
 
 
