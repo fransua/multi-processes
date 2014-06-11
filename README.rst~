@@ -1,7 +1,13 @@
-###  README --- /home/francisco/Box/utils/multi_f/
+Multi-processes
+***************
+
+Simple utility to run a list of jobs, distributing along a given number of CPUs
 
 usage: 
+
+```
 ./multi_f.py -i test.q -o test.pik -p 4
+```
 
 this will launch jobs in test.q and open a terminal that allows to monitorize jobs
 running jobs and finished jobs

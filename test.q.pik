@@ -1,0 +1,112 @@
+(dp1
+I2
+(dp2
+S'err'
+p3
+S''
+sS'cmd'
+p4
+S'sleep 3; echo "prout2 et la lolfeos,mfsdbnsd coucou"'
+p5
+sS't'
+(I0
+I0
+I0
+I4
+tp6
+sS't0'
+p7
+S'Wed Jun 11 15:29:34 2014'
+p8
+sS'out'
+p9
+S'prout2 et la lolfeos,mfsdbnsd coucou\n'
+p10
+ssI3
+(dp11
+g3
+S''
+sg4
+S'sleep 3; echo "prout3"'
+p12
+sS't'
+(I0
+I0
+I0
+I4
+tp13
+sg7
+S'Wed Jun 11 15:29:36 2014'
+p14
+sg9
+S'prout3\n'
+p15
+ssI4
+(dp16
+g3
+S''
+sg4
+S'sleep 3; echo "prout4"'
+p17
+sS't'
+(I0
+I0
+I0
+I4
+tp18
+sg7
+S'Wed Jun 11 15:29:38 2014'
+p19
+sg9
+S'prout4\n'
+p20
+ssS'pending'
+p21
+(lp22
+S'sleep 2; echo "1+1"'
+p23
+aS'sleep 15; echo "prout"'
+p24
+aS'sleep 10; echo "prout5"'
+p25
+aS'sleep 20; echo "prout1"'
+p26
+aS'sleep 10; echo "1+1"'
+p27
+aS'sleep 15; echo "1+1"'
+p28
+aS'sleep 2; echo "1+1"'
+p29
+aS'sleep 3; echo "1+1"'
+p30
+aS'sleep 10; echo "1+1"'
+p31
+aS'sleep 3; echo "1+1"'
+p32
+aS'sleep 6; echo "1+1"'
+p33
+aS'sleep 8; echo "1+1"'
+p34
+aS'sleep 10; echo "1+1"'
+p35
+aS'sleep 15; echo "1/0"'
+p36
+aS'sleep 2; echo "$1+$1"'
+p37
+aS'sleep 10; echo "1+1"'
+p38
+aS'sleep 10; echo 1+1'
+p39
+aS'sleep 6; nada'
+p40
+aS'sleep 3; echo $PRPRPRP'
+p41
+aS'sleep 1; echo lolo'
+p42
+aS"sleep 0; echo 'print '"
+p43
+aS'sleep 2;012'
+p44
+aS'sleep 10; echo "prout'
+p45
+as.
