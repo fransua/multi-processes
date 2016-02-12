@@ -17,7 +17,7 @@ from cPickle    import dump, load, UnpicklingError
 from threading  import Thread
 from os         import nice, system
 from pprint     import pprint
-
+from sys import exc_info, stdout
 import readline
 
 NICE=19
@@ -42,9 +42,10 @@ def main():
             listfile  = results_o ['pending']
         except KeyError:
             print '\nNo pending jobs here...\n'
-            exit()
+            listfile = []
         items = results_o.keys()
-        del (results_o['pending'])
+        if 'pending' in results_o:
+            del (results_o['pending'])
         results = {}
         for r in xrange (len (results_o)):
             results[r+1] = results_o[items[r]]
@@ -83,33 +84,41 @@ def runner (listfile, refresh, nprocs, results, procs):
     where jobs are runned
     '''
     i = len (results)
+    done = False
     try:
-        while listfile or procs:
+        while True:
             if listfile and len (procs)<nprocs[0]:
                 line = listfile.pop(0)
                 i += 1
-                procs[i] = {'p': Popen(line, shell=True,
-                                       stderr=PIPE, stdout=PIPE,
-                                       preexec_fn=lambda : nice(NICE)),
-                            'cmd': line, 't': time()}
+                procs[i] = {'p': Popen(line, shell=True, bufsize=-1,
+                                       stderr=PIPE, stdout=PIPE, stdin=PIPE),
+#                                       preexec_fn=lambda : nice(NICE)),
+                            'cmd': line, 't': time(), 'status': 'running'}
             for p in procs:
                 if procs[p]['p'].poll() is None:
                     continue
-                if procs[p]['p'].returncode == -9:
+                out, err = procs[p]['p'].communicate()
+                returncode = procs[p]['p'].returncode
+                if returncode == -9:
                     print ' WAHOOO!!! this was killed:'
                     print procs[p]
                     return
                 results[p] = {'cmd': procs[p]['cmd'],
                               't0': ctime(procs[p]['t']),
-                              't': timit(time()-procs[p]['t'])}
-                results[p]['out'], results[p]['err'] = procs[p]['p'].communicate()
+                              't': timit(time()-procs[p]['t']),
+                              'status': str(returncode),
+                              'out': out, 'err': err}
                 del (procs[p])
                 break
             sleep(refresh)
+            if not (listfile or procs) and not done:
+                print '\n\nall jobs done...'
+                stdout.write('O:-) ')
+                stdout.flush()
+                done = True
     except Exception as e:
         print 'ERROR at', i
         print e
-    print '\n\nall jobs done...'
 
 
 def timit (t):
@@ -129,10 +138,10 @@ def prompter (t_runs, results, procs, nprocs, listfile, name):
     '''
     little prompt in order to manage jobs
     '''
-    w = 50
+    w = 60
     timestr = '{0:0>2}d {1:0>2}h {2:0>2}m {3:0>2}s'
-    header = '\n| {0:^5} | {1:^15} | {2:^15} | {3:^%s} |'%(w-1)
-    raw = '| {0:<5} | {1:<15} | {3:0>2}d {4:0>2}h {5:0>2}m {6:0>2}s |{2:<%s} |'%(w)
+    header = '\n| {0:^5} | {1:^15} | {2:^15} | {3:^%s} | {4:^8} |'%(w-1)
+    raw = '| {0:<5} | {1:<15} | {4:0>2}d {5:0>2}h {6:0>2}m {7:0>2}s |{2:<%s} | {3:^8} |'%(w)
     help_s = """
 Help:
 ******
@@ -164,7 +173,6 @@ Help:
                     for p in procs:
                         procs[p]['p'].kill()
                         listfile.insert(0, procs[p]['cmd'])
-                    print 'hello'
                     break
                 elif r == 's':
                     nprocs[0] = 0
@@ -182,21 +190,23 @@ Help:
             elif r=='d':
                 print '\nDone jobs:'
                 print '***********'
-                print header.format ('job #', 'start time', 'spent time', 'command')
-                print '-'*(47+w)
+                print header.format ('job #', 'start time', 'spent time', 'command', 'status')
+                print '-'*(58+w)
                 for j in results:
                     print raw.format (str(j), results[j]['t0'][4:-5],
                                       print_cmd (results[j]['cmd'], w),
+                                      results[j]['status'],
                                       *[i for i in results[j]['t']])
                 print ''
             elif r=='r':
                 print '\nRunning jobs:'
                 print '**************'
-                print header.format ('job #', 'start time', 'running time', 'command')
-                print '-'*(47+w)
+                print header.format ('job #', 'start time', 'running time', 'command', 'status')
+                print '-'*(58+w)
                 for j in procs:
                     print raw.format(str(j), ctime(procs[j]['t'])[4:-5],
                                       print_cmd (procs[j]['cmd'], w),
+                                     procs[j]['status'],
                                      *[i for i in timit (time()-procs[j]['t'])])
                 print ''
             elif r=='a':
@@ -223,12 +233,16 @@ Help:
                 try:
                     exec ('pprint (%s)'%(r))
                 except:
-                    print ' hmmm... this is not working well\n'
+                    try:
+                        exec (r)
+                    except:
+                        print ' hmmm... this is not working well\n'
     except Exception as e:
         t_runs._Thread__stop()
+        _, _, exc_tb = exc_info()
         print 'Big Horror!!\n'
-        print e
-        exit()
+        print e, '(line %s)' % exc_tb.tb_lineno
+        return
 
 
 def wait(t_runs, t_term):
