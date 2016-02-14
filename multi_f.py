@@ -15,10 +15,13 @@ from subprocess import Popen, PIPE
 from time       import sleep, time, ctime
 from cPickle    import dump, load, UnpicklingError
 from threading  import Thread
-from os         import nice, system
+from os         import nice
 from pprint     import pprint
-from sys import exc_info, stdout
+from sys        import exc_info, stdout
+from Queue import Queue, Empty
+# this import is to allow arrow navigation inside command line
 import readline
+import rlcompleter
 
 NICE=19
     
@@ -78,7 +81,10 @@ def main():
 
     print bye()
     
-
+def enqueue_output(out, queue):
+    for c in iter(out.readline, ''):
+        queue.put(c)
+                    
 def runner (listfile, refresh, nprocs, results, procs):
     '''
     where jobs are runned
@@ -87,17 +93,42 @@ def runner (listfile, refresh, nprocs, results, procs):
     done = False
     try:
         while True:
+            varz = globals()
+            varz.update(locals())
+            readline.set_completer(rlcompleter.Completer(varz).complete)
+            readline.parse_and_bind("tab: complete")
             if listfile and len (procs)<nprocs[0]:
                 line = listfile.pop(0)
                 i += 1
                 procs[i] = {'p': Popen(line, shell=True, bufsize=-1,
-                                       stderr=PIPE, stdout=PIPE, stdin=PIPE),
-#                                       preexec_fn=lambda : nice(NICE)),
-                            'cmd': line, 't': time(), 'status': 'running'}
+                                       stderr=PIPE, stdout=PIPE, stdin=PIPE,
+                                       preexec_fn=lambda : nice(NICE)),
+                            'cmd': line, 't': time(), 'status': 'running',
+                            'out': '', 'err': '', 'qout': Queue(), 'qerr': Queue()}
+                procs[i]['tout'] = Thread(target=enqueue_output,
+                                          args=(procs[i]['p'].stdout, procs[i]['qout']))
+                procs[i]['terr'] = Thread(target=enqueue_output,
+                                          args=(procs[i]['p'].stderr, procs[i]['qerr']))
+                procs[i]['tout'].daemon = True
+                procs[i]['tout'].start()
+                procs[i]['terr'].daemon = True
+                procs[i]['terr'].start()
             for p in procs:
+                try:
+                    line = procs[p]['qout'].get_nowait() # or q.get(timeout=.1)
+                except Empty:
+                    pass
+                else:
+                    procs[p]['out'] += line
+                try:
+                    line = procs[p]['qerr'].get_nowait() # or q.get(timeerr=.1)
+                except Empty:
+                    pass
+                else:
+                    procs[p]['err'] += line
+                            
                 if procs[p]['p'].poll() is None:
                     continue
-                out, err = procs[p]['p'].communicate()
                 returncode = procs[p]['p'].returncode
                 if returncode == -9:
                     print ' WAHOOO!!! this was killed:'
@@ -107,7 +138,7 @@ def runner (listfile, refresh, nprocs, results, procs):
                               't0': ctime(procs[p]['t']),
                               't': timit(time()-procs[p]['t']),
                               'status': str(returncode),
-                              'out': out, 'err': err}
+                              'out': procs[p]['out'], 'err': procs[p]['err']}
                 del (procs[p])
                 break
             sleep(refresh)
