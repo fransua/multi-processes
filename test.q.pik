@@ -1,2 +1,49 @@
 (dp1
-.
+I1
+(dp2
+S'status'
+p3
+S'0'
+sS'err'
+p4
+S''
+sS'cmd'
+p5
+S'python -c "import time; import sys;time.sleep(5);print \'hola\';time.sleep(5);sys.stdout.write(\'.\');sys.stdout.flush();time.sleep(2);sys.stdout.write(\'.\\n\');sys.stdout.flush();time.sleep(5);sys.stdout.write(\'.\\n\');sys.stdout.flush();time.sleep(1);sys.stdout.write(\'.\');sys.stdout.flush();time.sleep(1);sys.stdout.write(\'.\');sys.stdout.flush();time.sleep(2);print \'\\nrehola\\n\';time.sleep(4); print \'salut\'; time.sleep(1)"'
+p6
+sS't0'
+p7
+S'Thu Feb 18 12:04:09 2016'
+p8
+sS't'
+(I0
+I0
+I0
+I28
+tp9
+sS'out'
+p10
+S'hola\n..\n.\n..\nrehola\n\nsalut\n'
+p11
+ssI2
+(dp12
+g3
+S'0'
+sg4
+S''
+sg5
+S'python -c "import time; import sys;time.sleep(5);print \'hola\'"'
+p13
+sg7
+S'Thu Feb 18 12:04:11 2016'
+p14
+sS't'
+(I0
+I0
+I0
+I6
+tp15
+sg10
+S'hola\n'
+p16
+ss.

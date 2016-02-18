@@ -1,1 +1,2 @@
 python -c "import time; import sys;time.sleep(5);print 'hola';time.sleep(5);sys.stdout.write('.');sys.stdout.flush();time.sleep(2);sys.stdout.write('.\n');sys.stdout.flush();time.sleep(5);sys.stdout.write('.\n');sys.stdout.flush();time.sleep(1);sys.stdout.write('.');sys.stdout.flush();time.sleep(1);sys.stdout.write('.');sys.stdout.flush();time.sleep(2);print '\nrehola\n';time.sleep(4); print 'salut'; time.sleep(1)"
+python -c "import time; import sys;time.sleep(5);print 'hola'"

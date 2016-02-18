@@ -134,11 +134,24 @@ def runner (listfile, refresh, nprocs, results, procs):
                     print ' WAHOOO!!! this was killed:'
                     print procs[p]
                     return
+                while not False:
+                    try:
+                        line = procs[p]['qout'].get_nowait()
+                    except Empty:
+                        break
+                    procs[p]['out'] += line
+                while not False:
+                    try:
+                        line = procs[p]['qerr'].get_nowait()
+                    except Empty:
+                        break
+                    procs[p]['err'] += line
                 results[p] = {'cmd': procs[p]['cmd'],
                               't0': ctime(procs[p]['t']),
                               't': timit(time()-procs[p]['t']),
                               'status': str(returncode),
-                              'out': procs[p]['out'], 'err': procs[p]['err']}
+                              'out': procs[p]['out'],
+                              'err': procs[p]['err']}
                 del (procs[p])
                 break
             sleep(refresh)
